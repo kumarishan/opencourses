@@ -1,0 +1,109 @@
+{
+  "name": "opencourses",
+  "productName": "OpenCourses",
+  "version": "0.1.0",
+  "description": "OpenCourses Electron application",
+  "main": ".vite/build/index.js",
+  "scripts": {
+    "dev": "electron-forge start",
+    "start": "electron-forge start",
+    "build": "electron-forge make",
+    "package": "electron-forge package",
+    "make": "electron-forge make",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@lexical/react": "^0.14.5",
+    "@monaco-editor/react": "^4.6.0",
+    "clsx": "^2.1.1",
+    "lexical": "^0.14.5",
+    "lottie-web": "^5.12.2",
+    "lucide-react": "^1.7.0",
+    "mermaid": "^10.9.1",
+    "monaco-editor": "^0.52.2",
+    "node-pty": "^1.0.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.23.1",
+    "tailwind-merge": "^2.6.0",
+    "xterm": "^5.3.0",
+    "xterm-addon-fit": "^0.8.0",
+    "zustand": "^4.5.2"
+  },
+  "devDependencies": {
+    "@electron-forge/cli": "^7.11.1",
+    "@electron-forge/maker-dmg": "^7.11.1",
+    "@electron-forge/maker-zip": "^7.11.1",
+    "@electron-forge/plugin-vite": "^7.11.1",
+    "@tailwindcss/vite": "^4.0.0",
+    "@types/node": "^22.15.3",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.7.0",
+    "@vitest/coverage-v8": "^1.6.0",
+    "electron": "^28.3.3",
+    "tailwindcss": "^4.0.0",
+    "typescript": "^5.4.5",
+    "vite": "^5.3.1",
+    "vitest": "^1.6.0"
+  },
+  "config": {
+    "forge": {
+      "packagerConfig": {
+        "asar": {
+          "unpack": "**/*.node"
+        },
+        "appBundleId": "com.opencourses.app",
+        "name": "OpenCourses",
+        "extraResource": [
+          "resources/skills"
+        ]
+      },
+      "makers": [
+        {
+          "name": "@electron-forge/maker-dmg",
+          "config": {
+            "format": "ULFO"
+          },
+          "platforms": [
+            "darwin"
+          ]
+        },
+        {
+          "name": "@electron-forge/maker-zip",
+          "platforms": [
+            "darwin",
+            "linux"
+          ]
+        }
+      ],
+      "plugins": [
+        {
+          "name": "@electron-forge/plugin-vite",
+          "config": {
+            "build": [
+              {
+                "entry": "src/main/index.ts",
+                "config": "vite.main.config.mts"
+              },
+              {
+                "entry": "src/main/preload.ts",
+                "config": "vite.preload.config.mts"
+              }
+            ],
+            "renderer": [
+              {
+                "name": "main_window",
+                "config": "vite.renderer.config.mts"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}
