@@ -26,7 +26,14 @@ export const useCourseStore = create<CourseStoreState>((set) => ({
   activeChapterId: null,
   activeSectionFile: null,
   setCourses: (courses) => set({ courses }),
-  setActiveCourse: (courseId) => set({ activeCourseId: courseId }),
+  setActiveCourse: (courseId) =>
+    set((state) => ({
+      activeCourseId: courseId,
+      activeChapterId:
+        courseId !== null && state.activeCourseId === courseId ? state.activeChapterId : null,
+      activeSectionFile:
+        courseId !== null && state.activeCourseId === courseId ? state.activeSectionFile : null,
+    })),
   setActiveSection: (chapterId, sectionFile) =>
     set({ activeChapterId: chapterId, activeSectionFile: sectionFile }),
   updateCourseMode: (courseId, mode) =>

@@ -1388,7 +1388,7 @@ function createWindow() {
     return { action: "deny" };
   });
   {
-    mainWindow.loadURL("http://localhost:5173");
+    mainWindow.loadURL("http://localhost:5174");
   }
   return mainWindow;
 }

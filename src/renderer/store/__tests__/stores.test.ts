@@ -62,6 +62,20 @@ describe('renderer stores', () => {
     expect(useCourseStore.getState().activeSectionFile).toBeNull()
   })
 
+  it('setActiveCourse clears the previous chapter and section when switching courses', () => {
+    useCourseStore
+      .getState()
+      .setCourses([baseCourse(), baseCourse({ id: 'course-2', name: 'course-two' })])
+    useCourseStore.getState().setActiveCourse('course-1')
+    useCourseStore.getState().setActiveSection('chapter-1', '/tmp/course-one/section.md')
+
+    useCourseStore.getState().setActiveCourse('course-2')
+
+    expect(useCourseStore.getState().activeCourseId).toBe('course-2')
+    expect(useCourseStore.getState().activeChapterId).toBeNull()
+    expect(useCourseStore.getState().activeSectionFile).toBeNull()
+  })
+
   it('appendChunk appends streamed output to the correct job', () => {
     const store = useAgentStore.getState()
     store.startJob('job-1', 'outline')

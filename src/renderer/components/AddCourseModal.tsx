@@ -11,6 +11,7 @@ import {
 } from '../ipc/client'
 import { cn } from '../lib/utils'
 import { useCourseStore } from '../store/courseStore'
+import { useBranchNameDialog } from './BranchNameDialog'
 
 type Tab = 'registry' | 'create' | 'github'
 
@@ -25,6 +26,7 @@ export function AddCourseModal({ isOpen, onClose }: AddCourseModalProps): JSX.El
   const setActiveCourse = useCourseStore((state) => state.setActiveCourse)
   const updateCourseMode = useCourseStore((state) => state.updateCourseMode)
   const updateCourseBranch = useCourseStore((state) => state.updateCourseBranch)
+  const { dialog: branchNameDialog, requestBranchName } = useBranchNameDialog()
 
   const [tab, setTab] = useState<Tab>('registry')
   const [registry, setRegistry] = useState<Awaited<ReturnType<typeof listRegistry>>>([])
@@ -98,7 +100,22 @@ export function AddCourseModal({ isOpen, onClose }: AddCourseModalProps): JSX.El
     let result = await setMode(courseId, 'create')
 
     if (result.status === 'needs-branch-name') {
-      const branchName = window.prompt('Enter branch name:')
+      const branchName = await requestBranchName({
+        title: 'Create a working branch',
+        description: 'Create mode needs a branch before the course can switch into editing mode.',
+        confirmLabel: 'Create Branch',
+      })
+      if (!branchName) return
+      await gitCreateBranch(courseId, branchName)
+      result = await setMode(courseId, 'create')
+    }
+
+    if (result.status === 'pr-merged') {
+      const branchName = await requestBranchName({
+        title: 'Start a new branch',
+        description: `The previous PR was already merged: ${result.prUrl}`,
+        confirmLabel: 'Create Branch',
+      })
       if (!branchName) return
       await gitCreateBranch(courseId, branchName)
       result = await setMode(courseId, 'create')
@@ -157,9 +174,6 @@ export function AddCourseModal({ isOpen, onClose }: AddCourseModalProps): JSX.El
       setActiveCourse(newCourse.id)
       navigate(`/courses/${newCourse.name}`)
       await handleCreateMode(newCourse.id)
-      if (objective.trim()) {
-        window.alert(`Course created for objective: ${objective.trim()}`)
-      }
       onClose()
     } catch (err) {
       const ipcError = err as IPCError
@@ -333,6 +347,8 @@ export function AddCourseModal({ isOpen, onClose }: AddCourseModalProps): JSX.El
           </button>
         </div>
       </div>
+
+      {branchNameDialog}
     </div>,
     document.body
   )

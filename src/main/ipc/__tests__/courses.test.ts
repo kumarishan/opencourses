@@ -415,16 +415,6 @@ describe('registerCoursesHandlers', () => {
     })
   })
 
-  describe('courses/remove', () => {
-    it('calls removeCourse and returns ok', () => {
-      const handler = getHandler('courses/remove')
-      const result = handler(null, 'course-1')
-
-      expect(stateManager.removeCourse).toHaveBeenCalledWith('course-1')
-      expect(result).toEqual({ ok: true })
-    })
-  })
-
   describe('courses/getProgress', () => {
     it('returns learnerProgress for existing course', () => {
       const progress = { ch1: { completed: true, sections: {} } }

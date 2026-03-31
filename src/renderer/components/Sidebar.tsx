@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type MouseEvent as ReactMouseEvent } from 'react'
 import { Check, ChevronDown, ChevronRight, Circle, MoreHorizontal, Plus, Trash2 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import {
@@ -38,6 +38,9 @@ interface ContextMenuState {
   x: number
   y: number
 }
+
+const CONTEXT_MENU_WIDTH = 190
+const CONTEXT_MENU_MARGIN = 12
 
 function parseFrontmatter(markdown: string): { title: string; order: number } {
   const match = markdown.match(/^---\n([\s\S]*?)\n---/)
@@ -213,13 +216,24 @@ export function Sidebar({ collapsed }: SidebarProps): JSX.Element {
     navigate(`/courses/${courseName}`)
   }
 
+  function openCourseContextMenuAt(courseId: string, x: number, y: number): void {
+    const maxX = window.innerWidth - CONTEXT_MENU_WIDTH - CONTEXT_MENU_MARGIN
+    const maxY = window.innerHeight - 60
+
+    setContextMenu({
+      courseId,
+      x: Math.max(CONTEXT_MENU_MARGIN, Math.min(x, maxX)),
+      y: Math.max(CONTEXT_MENU_MARGIN, Math.min(y, maxY)),
+    })
+  }
+
   function openCourseContextMenu(
-    event: React.MouseEvent<HTMLButtonElement>,
+    event: ReactMouseEvent<HTMLButtonElement>,
     courseId: string
   ): void {
     event.preventDefault()
     event.stopPropagation()
-    setContextMenu({ courseId, x: event.clientX, y: event.clientY })
+    openCourseContextMenuAt(courseId, event.clientX, event.clientY)
   }
 
   async function handleRemoveCourse(courseId: string): Promise<void> {
@@ -327,7 +341,7 @@ export function Sidebar({ collapsed }: SidebarProps): JSX.Element {
                   <div
                     onContextMenu={(event) => {
                       event.preventDefault()
-                      setContextMenu({ courseId: course.id, x: event.clientX, y: event.clientY })
+                      openCourseContextMenuAt(course.id, event.clientX, event.clientY)
                     }}
                     className={cn(
                       'group flex items-center gap-1 rounded-md border border-transparent transition',

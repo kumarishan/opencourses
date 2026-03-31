@@ -13,6 +13,7 @@ import {
 } from '../ipc/client'
 import { cn } from '../lib/utils'
 import { getActiveCourse, useCourseStore } from '../store/courseStore'
+import { useBranchNameDialog } from './BranchNameDialog'
 
 function prettifyChapter(chapterId: string | null): string {
   if (!chapterId) return 'Overview'
@@ -28,6 +29,7 @@ export function TopNavbar({ sidebarCollapsed, onToggleSidebar }: TopNavbarProps)
   const navigate = useNavigate()
   const courseStore = useCourseStore()
   const activeCourse = useMemo(() => getActiveCourse(courseStore), [courseStore])
+  const { dialog: branchNameDialog, requestBranchName } = useBranchNameDialog()
   const [branches, setBranches] = useState<string[]>([])
   const [busy, setBusy] = useState(false)
   const [statusMessage, setStatusMessage] = useState<string | null>(null)
@@ -70,15 +72,22 @@ export function TopNavbar({ sidebarCollapsed, onToggleSidebar }: TopNavbarProps)
       let result = await setMode(activeCourse.id, nextMode)
 
       if (result.status === 'needs-branch-name') {
-        const branchName = window.prompt('Enter branch name:')
+        const branchName = await requestBranchName({
+          title: 'Create a working branch',
+          description: 'Create mode needs a branch before this course can switch into editing mode.',
+          confirmLabel: 'Create Branch',
+        })
         if (!branchName) return
         await gitCreateBranch(activeCourse.id, branchName)
         result = await setMode(activeCourse.id, 'create')
       }
 
       if (result.status === 'pr-merged') {
-        window.alert(`The previous PR was merged: ${result.prUrl}`)
-        const branchName = window.prompt('Enter a new branch name:')
+        const branchName = await requestBranchName({
+          title: 'Start a new branch',
+          description: `The previous PR was already merged: ${result.prUrl}`,
+          confirmLabel: 'Create Branch',
+        })
         if (!branchName) return
         await gitCreateBranch(activeCourse.id, branchName)
         result = await setMode(activeCourse.id, 'create')
@@ -271,6 +280,8 @@ export function TopNavbar({ sidebarCollapsed, onToggleSidebar }: TopNavbarProps)
           </div>
         )}
       </div>
+
+      {branchNameDialog}
     </header>
   )
 }
