@@ -7,13 +7,14 @@ node_modules/
 out/
 dist/
 
+asdfa
 # Test and coverage artifacts
 coverage/
 .nyc_output/
 
 # TypeScript build cache
 *.tsbuildinfo
-
+asdf
 # Logs
 *.log
 npm-debug.log*

@@ -11,5 +11,6 @@
       "@renderer/*": ["src/renderer/*"],
       "@shared/*": ["src/shared/*"]
     }
+    
   }
 }
