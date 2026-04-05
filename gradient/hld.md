@@ -1,4 +1,4 @@
-**# High-Level Design
+# High-Level Design
 
 ## Scope
 This HLD summarizes the current OpenCourses architecture from [spec.md](./spec.md) and the implemented codebase, limited to:
