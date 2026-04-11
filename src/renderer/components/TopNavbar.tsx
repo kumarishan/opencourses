@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, ArrowRight, ChevronRight, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
+import { matchPath, useLocation, useNavigate } from 'react-router-dom'
 import {
   createPR,
   getCourseProgress,
@@ -9,9 +10,10 @@ import {
   gitCreateBranch,
   gitListBranches,
   markSectionComplete,
-  setMode,
 } from '../ipc/client'
+import { courseQueryKeys, useSetCourseMode, useUpdateCourse } from '../hooks/useCourses'
 import { cn } from '../lib/utils'
+import { buildCourseRoute } from '../lib/courseRoute'
 import { getActiveCourse, useCourseStore } from '../store/courseStore'
 import { useBranchNameDialog } from './BranchNameDialog'
 
@@ -27,6 +29,10 @@ interface TopNavbarProps {
 
 export function TopNavbar({ sidebarCollapsed, onToggleSidebar }: TopNavbarProps): JSX.Element {
   const navigate = useNavigate()
+  const location = useLocation()
+  const queryClient = useQueryClient()
+  const setCourseModeMutation = useSetCourseMode()
+  const updateCourse = useUpdateCourse()
   const courseStore = useCourseStore()
   const activeCourse = useMemo(() => getActiveCourse(courseStore), [courseStore])
   const { dialog: branchNameDialog, requestBranchName } = useBranchNameDialog()
@@ -35,6 +41,15 @@ export function TopNavbar({ sidebarCollapsed, onToggleSidebar }: TopNavbarProps)
   const [statusMessage, setStatusMessage] = useState<string | null>(null)
   const noDragStyle: CSSProperties = { WebkitAppRegion: 'no-drag' }
   const leftInset = navigator.userAgent.includes('Mac') ? 80 : 12
+  const learnMatch = matchPath(
+    '/learn/course/:name/ch/:chapterId/sec/:section',
+    location.pathname
+  )
+  const createMatch = matchPath(
+    '/create/course/:name/ch/:chapterId/sec/:section',
+    location.pathname
+  )
+  const routeMatch = learnMatch ?? createMatch
 
   useEffect(() => {
     if (!activeCourse) {
@@ -69,7 +84,7 @@ export function TopNavbar({ sidebarCollapsed, onToggleSidebar }: TopNavbarProps)
     setStatusMessage(null)
 
     try {
-      let result = await setMode(activeCourse.id, nextMode)
+      let result = await setCourseModeMutation.mutateAsync({ courseId: activeCourse.id, mode: nextMode })
 
       if (result.status === 'needs-branch-name') {
         const branchName = await requestBranchName({
@@ -79,7 +94,7 @@ export function TopNavbar({ sidebarCollapsed, onToggleSidebar }: TopNavbarProps)
         })
         if (!branchName) return
         await gitCreateBranch(activeCourse.id, branchName)
-        result = await setMode(activeCourse.id, 'create')
+        result = await setCourseModeMutation.mutateAsync({ courseId: activeCourse.id, mode: 'create' })
       }
 
       if (result.status === 'pr-merged') {
@@ -90,12 +105,28 @@ export function TopNavbar({ sidebarCollapsed, onToggleSidebar }: TopNavbarProps)
         })
         if (!branchName) return
         await gitCreateBranch(activeCourse.id, branchName)
-        result = await setMode(activeCourse.id, 'create')
+        result = await setCourseModeMutation.mutateAsync({ courseId: activeCourse.id, mode: 'create' })
       }
 
       if (result.status === 'ok') {
         courseStore.updateCourseMode(activeCourse.id, result.mode)
         courseStore.updateCourseBranch(activeCourse.id, result.branch)
+        updateCourse(activeCourse.id, (course) => ({
+          ...course,
+          activeMode: result.mode,
+          activeBranch: result.branch,
+        }))
+
+        if (routeMatch?.params.chapterId && routeMatch.params.section) {
+          navigate(
+            buildCourseRoute(
+              nextMode,
+              activeCourse.name,
+              routeMatch.params.chapterId,
+              decodeURIComponent(routeMatch.params.section)
+            )
+          )
+        }
       }
     } finally {
       setBusy(false)
@@ -110,6 +141,8 @@ export function TopNavbar({ sidebarCollapsed, onToggleSidebar }: TopNavbarProps)
     try {
       await gitCheckout(activeCourse.id, branch)
       courseStore.updateCourseBranch(activeCourse.id, branch)
+      updateCourse(activeCourse.id, (course) => ({ ...course, activeBranch: branch }))
+      void queryClient.invalidateQueries({ queryKey: courseQueryKeys.all })
     } finally {
       setBusy(false)
     }
@@ -129,6 +162,8 @@ export function TopNavbar({ sidebarCollapsed, onToggleSidebar }: TopNavbarProps)
       )
       const progress = await getCourseProgress(activeCourse.id)
       courseStore.updateCourseProgress(activeCourse.id, progress)
+      updateCourse(activeCourse.id, (course) => ({ ...course, learnerProgress: progress }))
+      void queryClient.invalidateQueries({ queryKey: courseQueryKeys.all })
       setStatusMessage('Section marked complete.')
     } finally {
       setBusy(false)

@@ -38,6 +38,32 @@ export async function loadSkill(skillName: 'course-creation' | 'course-evaluatio
   return skillMd + refContents
 }
 
+function buildAgentArgs(
+  agentCLI: 'claude' | 'codex',
+  skillContent: string,
+  taskPrompt: string
+): string[] {
+  if (agentCLI === 'claude') {
+    return ['--print', '--system-prompt', skillContent, taskPrompt]
+  }
+
+  const combinedPrompt = `${skillContent}\n\nTask payload (JSON):\n${taskPrompt}`
+  return ['exec', '--skip-git-repo-check', combinedPrompt]
+}
+
+function normalizeAgentError(
+  stderr: string,
+  agentCLI: 'claude' | 'codex',
+  code: number | null
+): string {
+  const trimmed = stderr.trim()
+  if (agentCLI === 'codex' && trimmed.includes('Local state is only available in the desktop app')) {
+    return `${trimmed}\nUse \`codex login --device-auth\` or \`codex login --with-api-key\`.`
+  }
+
+  return trimmed || `Process exited with code ${code}`
+}
+
 class AgentService {
   private jobs: Map<string, ChildProcess> = new Map()
 
@@ -57,10 +83,7 @@ class AgentService {
       targetSection: req.targetSection,
     })
 
-    const args =
-      agentCLI === 'claude'
-        ? ['--print', '--system-prompt', skillContent, taskPrompt]
-        : ['--system', skillContent, taskPrompt]
+    const args = buildAgentArgs(agentCLI, skillContent, taskPrompt)
 
     const child = spawn(agentCLI, args, { cwd: courseLocalPath })
     this.jobs.set(jobId, child)
@@ -92,7 +115,10 @@ class AgentService {
         }
         win.webContents.send(IPC.agent.complete, { jobId, outline })
       } else {
-        win.webContents.send(IPC.agent.error, { jobId, error: stderrBuf || `Process exited with code ${code}` })
+        win.webContents.send(IPC.agent.error, {
+          jobId,
+          error: normalizeAgentError(stderrBuf, agentCLI, code),
+        })
       }
     })
 
@@ -114,10 +140,7 @@ class AgentService {
       scratchFiles: req.scratchFiles,
     })
 
-    const args =
-      agentCLI === 'claude'
-        ? ['--print', '--system-prompt', skillContent, taskPrompt]
-        : ['--system', skillContent, taskPrompt]
+    const args = buildAgentArgs(agentCLI, skillContent, taskPrompt)
 
     const child = spawn(agentCLI, args, { cwd: scratchPath })
     this.jobs.set(jobId, child)
@@ -152,7 +175,10 @@ class AgentService {
         win.webContents.send(IPC.agent.complete, { jobId, pass, feedback })
         win.webContents.send(IPC.agent.evaluationResult, { jobId, pass, feedback })
       } else {
-        win.webContents.send(IPC.agent.error, { jobId, error: stderrBuf || `Process exited with code ${code}` })
+        win.webContents.send(IPC.agent.error, {
+          jobId,
+          error: normalizeAgentError(stderrBuf, agentCLI, code),
+        })
       }
     })
 

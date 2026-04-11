@@ -7,7 +7,8 @@ const instructions: Record<MissingTool, string> = {
   git: 'Install Git from https://git-scm.com/',
   gh: 'Install GitHub CLI with `brew install gh`, then run `gh auth login`.',
   claude: 'Install Claude Code CLI from https://claude.ai/cli',
-  codex: 'Install Codex CLI with `npm install -g @openai/codex`.',
+  codex:
+    'Install Codex CLI with `npm install -g @openai/codex`, then sign in with `codex login --device-auth` (or `printenv OPENAI_API_KEY | codex login --with-api-key`).',
 }
 
 interface SetupScreenProps {

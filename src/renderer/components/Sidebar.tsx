@@ -5,10 +5,11 @@ import {
   IPCError,
   fsList,
   fsRead,
-  removeCourse as removeCourseFromWorkspace,
   setActiveSection as persistActiveSection,
 } from '../ipc/client'
+import { useRemoveCourse } from '../hooks/useCourses'
 import { cn } from '../lib/utils'
+import { buildCourseRoute } from '../lib/courseRoute'
 import { useCourseStore } from '../store/courseStore'
 import { AddCourseModal } from './AddCourseModal'
 
@@ -118,6 +119,7 @@ async function loadCourseTree(coursePath: string): Promise<LoadedCourseTree> {
 
 export function Sidebar({ collapsed }: SidebarProps): JSX.Element {
   const navigate = useNavigate()
+  const removeCourseMutation = useRemoveCourse()
   const {
     courses,
     activeCourseId,
@@ -200,13 +202,14 @@ export function Sidebar({ collapsed }: SidebarProps): JSX.Element {
   async function openSection(
     courseId: string,
     courseName: string,
+    courseMode: 'learn' | 'create',
     chapterId: string,
     sectionFile: string
   ): Promise<void> {
     setActiveCourse(courseId)
     setActiveSection(chapterId, sectionFile)
     await persistActiveSection(courseId, chapterId, sectionFile)
-    navigate(`/courses/${courseName}`)
+    navigate(buildCourseRoute(courseMode, courseName, chapterId, sectionFile))
   }
 
   function openCourse(courseId: string, courseName: string, coursePath: string): void {
@@ -250,7 +253,7 @@ export function Sidebar({ collapsed }: SidebarProps): JSX.Element {
     setRemovingCourseId(courseId)
 
     try {
-      await removeCourseFromWorkspace(courseId)
+      await removeCourseMutation.mutateAsync(courseId)
       removeCourse(courseId)
       setTrees((state) => {
         const next = { ...state }
@@ -445,7 +448,13 @@ export function Sidebar({ collapsed }: SidebarProps): JSX.Element {
                                     <button
                                       key={section.path}
                                       onClick={() =>
-                                        void openSection(course.id, course.name, chapter.id, section.path)
+                                        void openSection(
+                                          course.id,
+                                          course.name,
+                                          course.activeMode,
+                                          chapter.id,
+                                          section.path
+                                        )
                                       }
                                       className={cn(
                                         'flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs transition',

@@ -1,6 +1,8 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import { useGetCourseByName } from '../hooks/useCourses'
 import { fsList, setActiveSection as persistActiveSection } from '../ipc/client'
+import { buildCourseRoute, decodeSectionParam, type CourseModeRoute } from '../lib/courseRoute'
 import { CreateMode } from './CreateMode'
 import { LearnMode } from './LearnMode'
 import { useCourseStore } from '../store/courseStore'
@@ -30,13 +32,23 @@ async function findFirstSection(coursePath: string): Promise<{ chapterId: string
   return null
 }
 
-export function CourseView(): JSX.Element {
-  const navigate = useNavigate()
-  const { name } = useParams<{ name: string }>()
-  const { courses, activeCourseId, activeChapterId, activeSectionFile, setActiveCourse, setActiveSection } =
-    useCourseStore()
+interface CourseViewProps {
+  mode?: CourseModeRoute
+}
 
-  const course = useMemo(() => courses.find((item) => item.name === name), [courses, name])
+export function CourseView({ mode }: CourseViewProps): JSX.Element {
+  const navigate = useNavigate()
+  const { name, chapterId, section } = useParams<{
+    name: string
+    chapterId: string
+    section: string
+  }>()
+  const { activeCourseId, activeChapterId, activeSectionFile, setActiveCourse, setActiveSection } =
+    useCourseStore()
+  const courseQuery = useGetCourseByName(name, true)
+
+  const course = courseQuery.data
+  const routeSectionFile = section ? decodeSectionParam(section) : null
 
   useEffect(() => {
     if (!course) return
@@ -46,8 +58,22 @@ export function CourseView(): JSX.Element {
     void (async () => {
       setActiveCourse(course.id)
 
+      if (mode && chapterId && routeSectionFile) {
+        setActiveSection(chapterId, routeSectionFile)
+        await persistActiveSection(course.id, chapterId, routeSectionFile)
+        return
+      }
+
       if (course.activeSection) {
-        setActiveSection(course.activeSection.chapterId, course.activeSection.sectionFile)
+        navigate(
+          buildCourseRoute(
+            course.activeMode,
+            course.name,
+            course.activeSection.chapterId,
+            course.activeSection.sectionFile
+          ),
+          { replace: true }
+        )
         return
       }
 
@@ -55,13 +81,17 @@ export function CourseView(): JSX.Element {
       if (!cancelled && firstSection) {
         setActiveSection(firstSection.chapterId, firstSection.sectionFile)
         await persistActiveSection(course.id, firstSection.chapterId, firstSection.sectionFile)
+        navigate(
+          buildCourseRoute(course.activeMode, course.name, firstSection.chapterId, firstSection.sectionFile),
+          { replace: true }
+        )
       }
     })()
 
     return () => {
       cancelled = true
     }
-  }, [course, setActiveCourse, setActiveSection])
+  }, [course, mode, chapterId, routeSectionFile, navigate, setActiveCourse, setActiveSection])
 
   useEffect(() => {
     if (!course || activeCourseId !== course.id || !activeChapterId || !activeSectionFile) {
@@ -70,6 +100,10 @@ export function CourseView(): JSX.Element {
 
     void persistActiveSection(course.id, activeChapterId, activeSectionFile)
   }, [course, activeCourseId, activeChapterId, activeSectionFile])
+
+  if (courseQuery.isLoading) {
+    return <div className="p-6 text-sm text-text-secondary">Loading course...</div>
+  }
 
   if (!course) {
     return (
@@ -90,7 +124,9 @@ export function CourseView(): JSX.Element {
     )
   }
 
-  return course.activeMode === 'learn' ? (
+  const resolvedMode = mode ?? course.activeMode
+
+  return resolvedMode === 'learn' ? (
     <LearnMode courseId={course.id} />
   ) : (
     <CreateMode courseId={course.id} />

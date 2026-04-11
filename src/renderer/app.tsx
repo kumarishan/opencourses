@@ -1,6 +1,8 @@
-import { startTransition, useEffect, useState } from 'react'
+import { useEffect } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Navigate, RouterProvider, createHashRouter } from 'react-router-dom'
-import { getPrerequisites, listCourses } from './ipc/client'
+import { getPrerequisites } from './ipc/client'
+import { courseQueryKeys, useGetCourses } from './hooks/useCourses'
 import { useCourseStore } from './store/courseStore'
 import { SetupScreen } from './views/SetupScreen'
 import { CourseView } from './views/CourseView'
@@ -31,6 +33,14 @@ const router = createHashRouter([
         ),
       },
       { path: 'courses/:name', element: <CourseView /> },
+      {
+        path: 'learn/course/:name/ch/:chapterId/sec/:section',
+        element: <CourseView mode="learn" />,
+      },
+      {
+        path: 'create/course/:name/ch/:chapterId/sec/:section',
+        element: <CourseView mode="create" />,
+      },
       { path: 'courses', element: <Navigate to="/" replace /> },
     ],
   },
@@ -39,35 +49,28 @@ const router = createHashRouter([
 
 function App(): JSX.Element {
   const setCourses = useCourseStore((state) => state.setCourses)
-  const [ready, setReady] = useState(false)
-  const [missingTools, setMissingTools] = useState<Array<'git' | 'gh' | 'claude' | 'codex'>>([])
+  const queryClient = useQueryClient()
+
+  const prerequisitesQuery = useQuery({
+    queryKey: ['prerequisites'],
+    queryFn: getPrerequisites,
+    retry: false,
+  })
+
+  const missingTools = prerequisitesQuery.data?.missing ?? []
+  const shouldLoadCourses =
+    prerequisitesQuery.status === 'success' && missingTools.length === 0
+
+  const coursesQuery = useGetCourses(shouldLoadCourses)
 
   useEffect(() => {
-    void hydrate()
-  }, [])
-
-  async function hydrate(): Promise<void> {
-    setReady(false)
-    const prerequisites = await getPrerequisites()
-
-    if (prerequisites.missing.length > 0) {
-      startTransition(() => {
-        setMissingTools(prerequisites.missing)
-        setReady(true)
-      })
-      return
+    if (!shouldLoadCourses) return
+    if (coursesQuery.data) {
+      setCourses(coursesQuery.data)
     }
+  }, [shouldLoadCourses, coursesQuery.data, setCourses])
 
-    const courses = await listCourses()
-
-    startTransition(() => {
-      setCourses(courses)
-      setMissingTools([])
-      setReady(true)
-    })
-  }
-
-  if (!ready) {
+  if (prerequisitesQuery.isLoading || (shouldLoadCourses && coursesQuery.isLoading)) {
     return (
       <div className="grid min-h-screen place-items-center px-8">
         <div className="rounded-md border border-border bg-surface px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-text-secondary">
@@ -78,7 +81,27 @@ function App(): JSX.Element {
   }
 
   if (missingTools.length > 0) {
-    return <SetupScreen missing={missingTools} onReady={() => void hydrate()} />
+    return (
+      <SetupScreen
+        missing={missingTools}
+        onReady={() => {
+          void queryClient.invalidateQueries({ queryKey: ['prerequisites'] })
+          void queryClient.invalidateQueries({ queryKey: courseQueryKeys.all })
+        }}
+      />
+    )
+  }
+
+  if (prerequisitesQuery.isError || coursesQuery.isError) {
+    return (
+      <div className="grid min-h-screen place-items-center px-8">
+        <div className="max-w-lg rounded-lg border border-red-400/30 bg-red-500/10 px-5 py-4 text-sm text-red-200">
+          {(prerequisitesQuery.error as Error | null)?.message ??
+            (coursesQuery.error as Error | null)?.message ??
+            'Failed to load workspace.'}
+        </div>
+      </div>
+    )
   }
 
   return <RouterProvider router={router} />

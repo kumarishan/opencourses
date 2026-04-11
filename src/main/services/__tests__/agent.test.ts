@@ -175,7 +175,7 @@ describe('AgentService.startGeneration', () => {
 
     expect(mockSpawn).toHaveBeenCalledWith(
       'codex',
-      ['--system', 'system prompt', expect.any(String)],
+      ['exec', '--skip-git-repo-check', expect.any(String)],
       { cwd: '/course/path' }
     )
 
@@ -185,6 +185,32 @@ describe('AgentService.startGeneration', () => {
     expect(win.webContents.send).toHaveBeenCalledWith(
       IPC.agent.error,
       expect.objectContaining({ error: 'something went wrong' })
+    )
+  })
+
+  it('adds a codex auth hint for desktop-local-state login errors', async () => {
+    const child = makeMockChild()
+    mockSpawn.mockReturnValue(child)
+
+    const { agentService } = await import('../agent')
+    const win = makeMockWin()
+    const req: AgentGenerationRequest = {
+      courseId: 'c1',
+      phase: 'outline',
+      instructions: 'create outline',
+    }
+
+    const { jobId } = await agentService.startGeneration(win, req, 'codex', 'system prompt', '/course/path')
+
+    child.stderr.emit('data', Buffer.from('Local state is only available in the desktop app'))
+    child.emit('close', 1)
+
+    expect(win.webContents.send).toHaveBeenCalledWith(
+      IPC.agent.error,
+      expect.objectContaining({
+        jobId,
+        error: expect.stringContaining('codex login --device-auth'),
+      })
     )
   })
 })
