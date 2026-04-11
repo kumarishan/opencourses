@@ -4,11 +4,11 @@ import { Plus, Search, X } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import {
   IPCError,
-  addCourse,
   gitCreateBranch,
   listRegistry,
   setMode,
 } from '../ipc/client'
+import { useAddCourse } from '../hooks/useCourses'
 import { cn } from '../lib/utils'
 import { useCourseStore } from '../store/courseStore'
 import { useBranchNameDialog } from './BranchNameDialog'
@@ -22,6 +22,7 @@ interface AddCourseModalProps {
 
 export function AddCourseModal({ isOpen, onClose }: AddCourseModalProps): JSX.Element {
   const navigate = useNavigate()
+  const addCourseMutation = useAddCourse()
   const upsertCourse = useCourseStore((state) => state.upsertCourse)
   const setActiveCourse = useCourseStore((state) => state.setActiveCourse)
   const updateCourseMode = useCourseStore((state) => state.updateCourseMode)
@@ -139,7 +140,7 @@ export function AddCourseModal({ isOpen, onClose }: AddCourseModalProps): JSX.El
           return
         }
 
-        const newCourse = await addCourse({ courseRepo: selected.courseRepo })
+        const newCourse = await addCourseMutation.mutateAsync({ courseRepo: selected.courseRepo })
         upsertCourse(newCourse)
         setActiveCourse(newCourse.id)
         navigate(`/courses/${newCourse.name}`)
@@ -153,7 +154,7 @@ export function AddCourseModal({ isOpen, onClose }: AddCourseModalProps): JSX.El
           return
         }
 
-        const newCourse = await addCourse({ courseRepo: githubUrl.trim() })
+        const newCourse = await addCourseMutation.mutateAsync({ courseRepo: githubUrl.trim() })
         upsertCourse(newCourse)
         setActiveCourse(newCourse.id)
         navigate(`/courses/${newCourse.name}`)
@@ -166,7 +167,7 @@ export function AddCourseModal({ isOpen, onClose }: AddCourseModalProps): JSX.El
         return
       }
 
-      const newCourse = await addCourse({
+      const newCourse = await addCourseMutation.mutateAsync({
         courseRepo: sourceRepo.trim(),
         sourceRepo: sourceRepo.trim(),
       })

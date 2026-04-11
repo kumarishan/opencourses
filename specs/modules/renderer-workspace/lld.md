@@ -1,22 +1,29 @@
 # Renderer Workspace Low-Level Design
 
+> Design status: describes the target renderer state architecture.
+
 ## Responsibility
 
-Implements all end-user UI workflows, invokes typed IPC client methods, and maintains transient UI/session state in Zustand stores.
+Implements end-user UI workflows with a hybrid state model:
+
+- route params for navigation identity
+- React Query for IPC-backed fetch/cache/invalidation
+- Zustand for transient workflow/session state
 
 ## Owned Code
 
 - App and routing: `src/renderer/app.tsx`, `src/renderer/views/*`
 - Course management UI: `src/renderer/components/Sidebar.tsx`, `AddCourseModal.tsx`, `TopNavbar.tsx`
 - Learn/Create surfaces: `AgentChatPanel.tsx`, `SectionRenderer.tsx`, `FileTreePanel.tsx`, `CodeEditorPanel.tsx`, `TerminalPanel.tsx`
+- Course query/mutation hooks: `src/renderer/hooks/useCourses.ts`
 - Stores: `src/renderer/store/courseStore.ts`, `agentStore.ts`, `terminalStore.ts`
 - IPC facade: `src/renderer/ipc/client.ts`
 
 ## Public Interfaces
 
 - `window.electron.invoke/on/off` (via preload bridge)
-- Store actions:
-- `useCourseStore`: course list/selection/mode/branch/progress updates
+- Router params for active context (`course`, `ch`, `sec`)
+- Course hooks (`useGetCourses`, `useGetCourseByName`, `useAddCourse`, `useRemoveCourse`, `useSetCourseMode`, `useUpdateCourse`)
 - `useAgentStore`: job lifecycle, chunk aggregation, event subscription
 - `useTerminalStore`: session tracking
 
@@ -27,24 +34,27 @@ Implements all end-user UI workflows, invokes typed IPC client methods, and main
 
 ## Logic Flows
 
-- Hydration flow: prerequisites check then course list bootstrap
+- Hydration flow: prerequisites check then initial query prefetch
 - Course tree flow: parse chapter metadata and section frontmatter for sidebar ordering
-- Create flow: branch/mode guardrails + agent generation jobs
-- Learn flow: scratch editing + task submission + evaluation result handling
+- Create flow: branch/mode guardrails + agent generation jobs + query invalidation after mutations
+- Learn flow: route-selected section + query-backed reads + task submission + evaluation result handling
 - Section parsing flow: markdown + custom directives (`:::task`, `:::lottie`, `:::excalidraw`, mermaid blocks)
 
 ## Dependencies
 
 - React Router (`createHashRouter`)
-- Zustand stores
+- React Query
+- Zustand stores (ephemeral only)
 - Monaco editor (`@monaco-editor/react`)
 - Xterm + fit addon
 - Mermaid and Lottie rendering
 
 ## State And Persistence
 
-- Renderer stores are in-memory only.
-- Durable state changes must go through IPC (`courses/*`, `fs/*`, `git/*`, etc.).
+- URL state is canonical for active learn context.
+- Query cache is canonical for IPC-backed read models.
+- Zustand stores are in-memory and limited to workflow/session state.
+- Durable mutations still go through IPC (`courses/*`, `fs/*`, `git/*`, etc.) and trigger query invalidation.
 
 ## Failure Modes
 

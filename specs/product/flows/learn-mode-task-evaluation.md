@@ -1,5 +1,7 @@
 # Learn Mode Task Evaluation
 
+> Design status: route/query ownership below reflects the target frontend state model.
+
 ## Goal
 
 Let learners work in scratch files, run tasks, and record completion when evaluation passes.
@@ -16,11 +18,13 @@ User opens a course in learn mode and submits a task block from section content.
 ## Happy Path
 
 1. Learn mode mounts file tree, code editor, terminal, and read-only section renderer.
-2. File tree lists scratch files and subscribes to filesystem watch events.
-3. Section renderer parses markdown into blocks (heading/paragraph/list/code/mermaid/lottie/excalidraw/task).
-4. User submits task; renderer reads current scratch files and calls `agent/evaluate`.
-5. Main process runs evaluation skill (`resources/skills/course-evaluation/*`) and streams output.
-6. On `agent:evaluation-result` pass, renderer marks section complete and refreshes course progress.
+2. Route params (`course`, `ch`, `sec`) select the active learn context.
+3. React Query fetches section/scratch/progress data and caches IPC responses.
+4. File tree lists scratch files and subscribes to filesystem watch events.
+5. Section renderer parses markdown into blocks (heading/paragraph/list/code/mermaid/lottie/excalidraw/task).
+6. User submits task; renderer reads current scratch files and calls `agent/evaluate`.
+7. Main process runs evaluation skill (`resources/skills/course-evaluation/*`) and streams output.
+8. On `agent:evaluation-result` pass, renderer marks section complete and invalidates/refetches progress queries.
 
 ## Alternate And Failure Paths
 
@@ -31,7 +35,9 @@ User opens a course in learn mode and submits a task block from section content.
 ## Interfaces And Data
 
 - IPC: `fs/list`, `fs/read`, `fs/watch`, `terminal/*`, `agent/evaluate`, `agent:evaluation-result`, `courses/markSectionComplete`, `courses/getProgress`
-- State: `taskResults`, `AgentStore.jobs`, `CourseState.learnerProgress`
+- Route state: `course/ch/sec` identity
+- Query state: section markdown, scratch listings/file contents, progress
+- Ephemeral Zustand state: `taskResults`, `AgentStore.jobs`, terminal session metadata
 
 ## Code Evidence
 

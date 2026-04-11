@@ -8,7 +8,7 @@
 
 ## Ownership Boundaries
 
-- Renderer workspace: React views/components, client IPC facade, Zustand stores
+- Renderer workspace: React views/components, client IPC facade, route state, query cache, and ephemeral stores
 - Main process: IPC handler registration, OS/CLI integrations, persisted workspace state
 - Shared contracts: channel constants, request/response/event payload types
 

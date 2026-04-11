@@ -1,5 +1,7 @@
 # Product Overview
 
+> Design status: this document includes a target frontend state-model update (route + React Query + minimal Zustand) and may temporarily differ from current code during migration.
+
 ## Product Goal
 
 OpenCourses helps a learner or course author pull a course repository into a local desktop workspace and work in two modes:
@@ -26,6 +28,12 @@ OpenCourses helps a learner or course author pull a course repository into a loc
 - Maintain per-course mode, branch, active section, and learner progress
 - Use agent CLI for outline/content generation and task evaluation
 - Commit/push changes and open GitHub PRs from UI
+
+## Frontend State Model (Design Update)
+
+- Route is the canonical navigation state for learning context: `/learn/course/:name/ch/:ch/sec/:sec`.
+- React Query is the canonical fetch/cache layer for IPC-backed data (courses, sections, progress, registry).
+- Zustand is reserved for ephemeral UI/workflow state (agent streams, terminal session metadata, dialog/busy flags).
 
 ## Out Of Scope In Current Code (Observed)
 

@@ -6,6 +6,7 @@ node_modules/
 # Build output
 out/
 dist/
+.vite/
 
 # Test and coverage artifacts
 coverage/

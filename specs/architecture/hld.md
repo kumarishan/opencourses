@@ -1,10 +1,12 @@
 # High-Level Design
 
+> Design status: includes planned frontend state-model migration (route identity + React Query cache + ephemeral Zustand).
+
 ## System Context
 
 OpenCourses is a local-first desktop app built with Electron + React.
 
-- Renderer process provides UI and in-memory stores
+- Renderer process provides UI, route state, query cache, and ephemeral workflow state
 - Main process owns privileged operations (filesystem, git, GitHub CLI, agent CLI, PTY)
 - Preload bridge exposes a narrow `invoke/on/off` API to renderer
 
@@ -15,7 +17,7 @@ No separate backend service is used.
 - App bootstrap and window lifecycle
 - IPC registration layer (channel handlers)
 - Service layer wrapping external CLIs and OS APIs
-- Renderer views/components and Zustand stores
+- Renderer views/components + route model + React Query cache + Zustand ephemeral stores
 - Shared type/channel contracts
 
 ## APIs, Events, And Public Interfaces
@@ -27,12 +29,22 @@ Primary interface is Electron IPC channels declared in `src/shared/ipc.ts`.
 
 Renderer uses `src/renderer/ipc/client.ts` as a typed client facade.
 
+Frontend state contract:
+
+- URL params own active learning context (`course/ch/sec`)
+- React Query owns fetch/cache/invalidation for IPC-backed reads
+- Zustand owns transient workflow/session state only
+- Course query/mutation entrypoint is centralized in `src/renderer/hooks/useCourses.ts`
+
 ## Data Ownership
 
 - Persistent app state: `~/.opencourses/state.json` via `StateManager`
 - Local course checkouts: `~/.opencourses/courses/*`
 - Runtime logs: `~/.opencourses/logs/main.log`
 - Scratch workspace: per-course `scratchPath` inside course checkout by default
+- Renderer route state owns course/chapter/section identity.
+- Renderer query cache owns course registry/tree/section/progress payloads.
+- Renderer ephemeral store owns job streams, terminal sessions, dialogs, and temporary UI flags.
 
 ## Key Sequences
 

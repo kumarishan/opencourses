@@ -114,6 +114,24 @@ ${text}`;
   }
   return skillMd + refContents;
 }
+function buildAgentArgs(agentCLI, skillContent, taskPrompt) {
+  if (agentCLI === "claude") {
+    return ["--print", "--system-prompt", skillContent, taskPrompt];
+  }
+  const combinedPrompt = `${skillContent}
+
+Task payload (JSON):
+${taskPrompt}`;
+  return ["exec", "--skip-git-repo-check", combinedPrompt];
+}
+function normalizeAgentError(stderr, agentCLI, code) {
+  const trimmed = stderr.trim();
+  if (agentCLI === "codex" && trimmed.includes("Local state is only available in the desktop app")) {
+    return `${trimmed}
+Use \`codex login --device-auth\` or \`codex login --with-api-key\`.`;
+  }
+  return trimmed || `Process exited with code ${code}`;
+}
 class AgentService {
   jobs = /* @__PURE__ */ new Map();
   async startGeneration(win, req, agentCLI, skillContent, courseLocalPath) {
@@ -124,7 +142,7 @@ class AgentService {
       targetChapter: req.targetChapter,
       targetSection: req.targetSection
     });
-    const args = agentCLI === "claude" ? ["--print", "--system-prompt", skillContent, taskPrompt] : ["--system", skillContent, taskPrompt];
+    const args = buildAgentArgs(agentCLI, skillContent, taskPrompt);
     const child = child_process.spawn(agentCLI, args, { cwd: courseLocalPath });
     this.jobs.set(jobId, child);
     const rl = readline.createInterface({ input: child.stdout });
@@ -151,7 +169,10 @@ class AgentService {
         }
         win.webContents.send(IPC.agent.complete, { jobId, outline });
       } else {
-        win.webContents.send(IPC.agent.error, { jobId, error: stderrBuf || `Process exited with code ${code}` });
+        win.webContents.send(IPC.agent.error, {
+          jobId,
+          error: normalizeAgentError(stderrBuf, agentCLI, code)
+        });
       }
     });
     return { jobId };
@@ -163,7 +184,7 @@ class AgentService {
       taskBlock: req.taskBlock,
       scratchFiles: req.scratchFiles
     });
-    const args = agentCLI === "claude" ? ["--print", "--system-prompt", skillContent, taskPrompt] : ["--system", skillContent, taskPrompt];
+    const args = buildAgentArgs(agentCLI, skillContent, taskPrompt);
     const child = child_process.spawn(agentCLI, args, { cwd: scratchPath });
     this.jobs.set(jobId, child);
     const rl = readline.createInterface({ input: child.stdout });
@@ -193,7 +214,10 @@ class AgentService {
         win.webContents.send(IPC.agent.complete, { jobId, pass, feedback });
         win.webContents.send(IPC.agent.evaluationResult, { jobId, pass, feedback });
       } else {
-        win.webContents.send(IPC.agent.error, { jobId, error: stderrBuf || `Process exited with code ${code}` });
+        win.webContents.send(IPC.agent.error, {
+          jobId,
+          error: normalizeAgentError(stderrBuf, agentCLI, code)
+        });
       }
     });
     return { jobId };
